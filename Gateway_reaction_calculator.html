@@ -1,0 +1,517 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Gateway BP Reaction Calculator — Chipman Lab</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root{
+    --bg:#fafaf7;
+    --panel:#ffffff;
+    --ink:#1d1d1b;
+    --muted:#6b6b66;
+    --rule:#e6e4dc;
+    --accent:#5b6f3f;
+    --accent-soft:#eef0e3;
+    --warn-bg:#fff4d6;
+    --warn-bd:#d9b34a;
+    --bad-bg:#fce4e0;
+    --bad-bd:#c25441;
+    --good-bg:#e6efe1;
+    --good-bd:#5b6f3f;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+    font-size:14px;line-height:1.45;}
+  header{padding:24px 28px 8px;border-bottom:1px solid var(--rule);background:#fff;}
+  header h1{margin:0 0 4px;font-size:20px;font-weight:600;letter-spacing:-0.01em;}
+  header .sub{color:var(--muted);font-size:13px;}
+  main{max-width:1200px;margin:0 auto;padding:24px 28px 64px;display:grid;
+    grid-template-columns:minmax(340px,400px) 1fr;gap:28px;}
+  @media (max-width: 900px){ main{grid-template-columns:1fr;} }
+  .panel{background:var(--panel);border:1px solid var(--rule);border-radius:8px;padding:18px 20px;}
+  .panel h2{margin:0 0 14px;font-size:15px;font-weight:600;letter-spacing:0.01em;
+    text-transform:uppercase;color:var(--muted);}
+  .panel h3{margin:18px 0 8px;font-size:14px;font-weight:600;}
+  .field{display:flex;flex-direction:column;margin-bottom:12px;}
+  .field label{font-size:12px;color:var(--muted);margin-bottom:4px;}
+  .field input, .field select, .field textarea{
+    font:inherit;padding:7px 9px;border:1px solid var(--rule);border-radius:5px;
+    background:#fff;color:var(--ink);
+  }
+  .field input:focus, .field select:focus, .field textarea:focus{
+    outline:2px solid var(--accent);outline-offset:-1px;border-color:var(--accent);
+  }
+  .field textarea{font-family:var(--mono);font-size:12px;resize:vertical;min-height:50px;}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:3px;}
+  .checkrow{display:flex;align-items:center;gap:8px;margin:6px 0 12px;}
+  .checkrow input{margin:0}
+  button.primary{background:var(--accent);color:#fff;border:0;padding:10px 16px;
+    border-radius:5px;font-weight:600;cursor:pointer;font-size:14px;width:100%;}
+  button.primary:hover{filter:brightness(1.05);}
+  .results .panel{margin-bottom:18px;}
+  table.recipe{width:100%;border-collapse:collapse;font-size:13px;}
+  table.recipe th, table.recipe td{
+    text-align:left;padding:6px 8px;border-bottom:1px solid var(--rule);
+  }
+  table.recipe th{background:var(--accent-soft);font-weight:600;}
+  table.recipe td.num{text-align:right;font-family:var(--mono);}
+  .badge{display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;
+    font-weight:600;letter-spacing:0.02em;text-transform:uppercase;}
+  .badge.good{background:var(--good-bg);color:var(--good-bd);}
+  .badge.warn{background:var(--warn-bg);color:#8a6c1a;}
+  .badge.bad{background:var(--bad-bg);color:var(--bad-bd);}
+  .alert{border-left:3px solid;padding:8px 12px;margin:8px 0;border-radius:0 5px 5px 0;font-size:13px;}
+  .alert.warn{background:var(--warn-bg);border-color:var(--warn-bd);}
+  .alert.bad{background:var(--bad-bg);border-color:var(--bad-bd);}
+  .alert.good{background:var(--good-bg);border-color:var(--good-bd);}
+  .meta{font-size:12px;color:var(--muted);margin-bottom:8px;}
+  .meta .k{color:var(--ink);font-weight:600;}
+  code{font-family:var(--mono);background:var(--accent-soft);padding:1px 5px;border-radius:3px;font-size:12px;}
+  .stack > * + *{margin-top:14px;}
+  details summary{cursor:pointer;color:var(--muted);font-size:12px;margin-top:8px;}
+  details[open] summary{margin-bottom:6px;}
+  details .body{font-size:12.5px;color:var(--muted);line-height:1.5;}
+  .empty{padding:40px 20px;text-align:center;color:var(--muted);font-size:13px;}
+  .empty .big{font-size:32px;margin-bottom:8px;}
+  footer{max-width:1200px;margin:0 auto;padding:20px 28px;color:var(--muted);font-size:11.5px;border-top:1px solid var(--rule);}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Gateway BP cloning — reaction calculator</h1>
+  <div class="sub">Chipman lab defaults · Invitrogen Platinum SuperFi II · pDONR221 · Stbl3 downstream · <em>Oncopeltus fasciatus</em> assumed unless noted.</div>
+</header>
+
+<main>
+
+<!-- ============================== INPUT ============================== -->
+<section class="panel">
+  <h2>Inputs</h2>
+
+  <h3>Insert / target</h3>
+
+  <div class="field">
+    <label for="targetName">Target name (used in reaction labels)</label>
+    <input id="targetName" type="text" placeholder="e.g. ofVasa-CRE1" />
+  </div>
+
+  <div class="row">
+    <div class="field">
+      <label for="insertLen">Gene-of-interest length (bp)</label>
+      <input id="insertLen" type="number" min="50" step="1" value="1200" />
+      <div class="hint">Length BETWEEN the attB1 and attB2 sites.</div>
+    </div>
+    <div class="field">
+      <label for="addAttB">attB tails on primers?</label>
+      <select id="addAttB">
+        <option value="yes" selected>Yes (Gateway default, +50 bp)</option>
+        <option value="no">No (already attB-flanked)</option>
+      </select>
+    </div>
+  </div>
+
+  <h3>Primers (gene-specific portion only)</h3>
+
+  <div class="field">
+    <label for="fwd">Forward primer — gene-specific 3′ portion</label>
+    <textarea id="fwd" rows="2" spellcheck="false" placeholder="ATGGCAGTC..."></textarea>
+    <div class="hint">Do not paste the attB1 tail; paste only the gene-specific bases.</div>
+  </div>
+  <div class="field">
+    <label for="rev">Reverse primer — gene-specific 3′ portion</label>
+    <textarea id="rev" rows="2" spellcheck="false" placeholder="TTACTGCAG..."></textarea>
+  </div>
+
+  <h3>Template</h3>
+
+  <div class="row">
+    <div class="field">
+      <label for="tplType">Template type</label>
+      <select id="tplType">
+        <option value="gdna">Genomic DNA (Oncopeltus)</option>
+        <option value="cdna" selected>cDNA / 1st-strand</option>
+        <option value="plasmid">Plasmid</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="tplConc">Template stock (ng/µL)</label>
+      <input id="tplConc" type="number" min="0" step="0.1" value="100" />
+    </div>
+  </div>
+
+  <h3>PCR scale</h3>
+  <div class="row">
+    <div class="field">
+      <label for="rxnVol">Reaction volume (µL)</label>
+      <select id="rxnVol">
+        <option value="50" selected>50 µL (full scale)</option>
+        <option value="25">25 µL</option>
+        <option value="20">20 µL</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="nRxn">Number of reactions</label>
+      <input id="nRxn" type="number" min="1" max="48" step="1" value="1" />
+    </div>
+  </div>
+
+  <h3>BP reaction</h3>
+  <div class="row">
+    <div class="field">
+      <label for="insertConc">Purified PCR product (ng/µL)</label>
+      <input id="insertConc" type="number" min="0" step="0.1" value="25" />
+      <div class="hint">After column / gel cleanup.</div>
+    </div>
+    <div class="field">
+      <label for="donorConc">pDONR221 stock (ng/µL)</label>
+      <input id="donorConc" type="number" min="0" step="0.1" value="150" />
+    </div>
+  </div>
+  <div class="row">
+    <div class="field">
+      <label for="bpInsertFmol">Insert target (fmol)</label>
+      <input id="bpInsertFmol" type="number" min="10" max="200" step="5" value="50" />
+    </div>
+    <div class="field">
+      <label for="bpDonorFmol">pDONR221 target (fmol)</label>
+      <input id="bpDonorFmol" type="number" min="10" max="200" step="5" value="50" />
+    </div>
+  </div>
+
+  <button class="primary" id="calcBtn">Calculate reaction</button>
+  <div class="hint" style="margin-top:8px">Auto-recalculates on every change.</div>
+</section>
+
+<!-- ============================== OUTPUT ============================== -->
+<section class="results" id="results">
+  <div class="panel empty" id="emptyState">
+    <div class="big">Awaiting inputs</div>
+    Enter primer sequences and insert length to generate a reaction-specific recipe.
+  </div>
+</section>
+
+</main>
+
+<footer>
+  Defaults follow the Gateway protocol in this folder
+  (<code>Gateway_cloning_protocol_pgPhiGUE.docx</code>).
+  Polymerase: Invitrogen Platinum SuperFi II (12361050/12361250).
+  Universal 60 °C anneal regardless of primer T<sub>m</sub>.
+  pDONR221 = 4,762 bp. fmol formula: <code>fmol = (ng × 10⁶) / (660 × bp)</code>.
+</footer>
+
+<script>
+/* ===== Constants ===== */
+const PDONR221_BP = 4762;
+const ATTB1_LEN = 25; // GGGGACAAGTTTGTACAAAAAAGCAGGCT (29 incl T overhang) — using 25 effective for fmol
+const ATTB2_LEN = 25; // GGGGACCACTTTGTACAAGAAAGCTGGGT
+const ATTB_TOTAL = 50;
+const M13F_FLANK = 109; // M13F to attL1 in pDONR221/entry context, approx
+const M13R_FLANK = 119; // M13R to attL2 in pDONR221/entry context, approx
+// Above values are typical pENTR/D / pDONR221-derived entry-clone flanking distances; band size = M13F_FLANK + insert + ATTB_TOTAL + M13R_FLANK approx.
+
+/* ===== Helpers ===== */
+const $ = id => document.getElementById(id);
+const sanitize = s => (s||"").toUpperCase().replace(/[^ACGTNRYSWKMBDHV]/g,"");
+const round = (n, d=2) => Number.isFinite(n) ? Number(n).toFixed(d) : "—";
+
+function fmolFromNg(ng, bp){ return (ng * 1e6) / (660 * bp); }
+function ngForFmol(fmol, bp){ return (fmol * 660 * bp) / 1e6; }
+
+// Wallace rule (short, <14 nt) and basic NN-ish for longer
+function tmWallace(seq){
+  let a=0,t=0,g=0,c=0;
+  for(const x of seq){ if(x=="A")a++; else if(x=="T")t++; else if(x=="G")g++; else if(x=="C")c++; }
+  const len=a+t+g+c;
+  if(len<14) return 2*(a+t)+4*(g+c);
+  // Marmur-Schildkraut–style approximation, no salt correction
+  return 64.9 + 41*((g+c-16.4)/len);
+}
+function gcPct(seq){
+  if(!seq) return 0;
+  const g=(seq.match(/G/g)||[]).length, c=(seq.match(/C/g)||[]).length;
+  return 100*(g+c)/seq.length;
+}
+
+/* ===== Core calc ===== */
+function compute(){
+  const target = $("targetName").value.trim() || "target";
+  const insertLen = parseInt($("insertLen").value)||0;
+  const addAttB = $("addAttB").value === "yes";
+  const fwd = sanitize($("fwd").value);
+  const rev = sanitize($("rev").value);
+  const tplType = $("tplType").value;
+  const tplConc = parseFloat($("tplConc").value)||0;
+  const rxnVol = parseInt($("rxnVol").value);
+  const nRxn = parseInt($("nRxn").value)||1;
+  const insertConc = parseFloat($("insertConc").value)||0;
+  const donorConc = parseFloat($("donorConc").value)||0;
+  const bpInsertFmol = parseFloat($("bpInsertFmol").value)||50;
+  const bpDonorFmol = parseFloat($("bpDonorFmol").value)||50;
+
+  if(!insertLen || (!fwd && !rev)){
+    return null;
+  }
+
+  // PCR product length
+  const pcrLen = insertLen + (addAttB ? ATTB_TOTAL : 0);
+
+  // Primer Tm / GC
+  const fTm = fwd ? tmWallace(fwd) : null;
+  const rTm = rev ? tmWallace(rev) : null;
+  const fGC = fwd ? gcPct(fwd) : null;
+  const rGC = rev ? gcPct(rev) : null;
+  const fLen = fwd.length, rLen = rev.length;
+
+  // Cycling - extension time: 15-30 s per kb. Use 30 s/kb to be safe; min 30 s.
+  const extKb = Math.max(0.5, pcrLen/1000);
+  const extSec = Math.max(30, Math.ceil(extKb*30));
+  const extDisplay = extSec < 60 ? `${extSec} s`
+    : `${Math.floor(extSec/60)} min ${extSec%60===0?"":(extSec%60+" s")}`.trim();
+
+  // Reaction recipe (50 µL stock proportions: 10 buf, 1 dNTP, 2.5+2.5 primer, 0.5 enz, template variable, water fill)
+  const scale = rxnVol/50;
+  const buf = 10*scale;
+  const dntp = 1*scale;
+  const fwdVol = 2.5*scale;
+  const revVol = 2.5*scale;
+  const enz = 0.5*scale;
+
+  // Template ng targets
+  let tplNgTarget;
+  if(tplType==="plasmid") tplNgTarget = 1*scale;       // 1 ng / 50 µL
+  else if(tplType==="cdna") tplNgTarget = 50*scale;     // 50 ng of cDNA equivalent / 50 µL
+  else tplNgTarget = 100*scale;                          // 100 ng gDNA / 50 µL
+  const tplVol = tplConc>0 ? Math.max(0.1, tplNgTarget/tplConc) : 0;
+  const water = rxnVol - (buf+dntp+fwdVol+revVol+enz+tplVol);
+
+  // Master mix (n+1 reactions)
+  const m = (nRxn+1);
+  const mm = {
+    buf: buf*m, dntp: dntp*m, fwd: fwdVol*m, rev: revVol*m, enz: enz*m,
+    water: water*m
+  };
+
+  // BP reaction
+  const insertNgNeeded = ngForFmol(bpInsertFmol, pcrLen);
+  const donorNgNeeded  = ngForFmol(bpDonorFmol, PDONR221_BP);
+  const insertVolBP = insertConc>0 ? insertNgNeeded/insertConc : NaN;
+  const donorVolBP  = donorConc>0  ? donorNgNeeded/donorConc   : NaN;
+  // BP recipe in 8 µL: insert + donor + Clonase II 2 µL + TE pH 8 to 8 µL
+  const bpClonase = 2;
+  const bpTotal = 8;
+  const bpTE = bpTotal - (insertVolBP + donorVolBP + bpClonase);
+
+  // Colony PCR / sequencing band size with M13 primers (entry clone)
+  const m13Band = M13F_FLANK + pcrLen + M13R_FLANK;
+
+  // Warnings
+  const warnings = [];
+
+  if(fTm!=null && (fTm<55 || fTm>72)){
+    warnings.push({sev: fTm<50||fTm>75 ? "bad":"warn",
+      msg:`Forward primer Tm = ${round(fTm,1)} °C — far from SuperFi II's 60 °C universal anneal. SuperFi II tolerates a wide window, but consider redesigning if Tm < 55 or > 70.`});
+  }
+  if(rTm!=null && (rTm<55 || rTm>72)){
+    warnings.push({sev: rTm<50||rTm>75 ? "bad":"warn",
+      msg:`Reverse primer Tm = ${round(rTm,1)} °C — far from SuperFi II's 60 °C universal anneal.`});
+  }
+  if(fLen && (fLen<18 || fLen>30)){
+    warnings.push({sev:"warn",
+      msg:`Forward gene-specific portion is ${fLen} nt. Aim for 20–25 nt of gene-specific sequence on attB-tailed primers.`});
+  }
+  if(rLen && (rLen<18 || rLen>30)){
+    warnings.push({sev:"warn",
+      msg:`Reverse gene-specific portion is ${rLen} nt. Aim for 20–25 nt.`});
+  }
+  if(fGC!=null && (fGC<35 || fGC>65)){
+    warnings.push({sev:"warn",
+      msg:`Forward primer GC = ${round(fGC,1)} %. Outside 35–65 % — re-pick primer if possible.`});
+  }
+  if(rGC!=null && (rGC<35 || rGC>65)){
+    warnings.push({sev:"warn",
+      msg:`Reverse primer GC = ${round(rGC,1)} %. Outside 35–65 %.`});
+  }
+  // Internal att site scan (≥7 bp contiguous match against att core)
+  const attCores = [
+    {name:"attB1 core (sense)", seq:"AAAGCAGGCT"},
+    {name:"attB2 core (sense)", seq:"AAAGCTGGGT"},
+    {name:"attB1 core (antisense)", seq:"AGCCTGCTTT"},
+    {name:"attB2 core (antisense)", seq:"ACCCAGCTTT"},
+  ];
+  // Will be checked against pasted gene-specific primer + (if user pastes longer fragment) – here just primer
+  const checkSeq = fwd + " " + rev;
+  for(const a of attCores){
+    for(let k=7;k<=a.seq.length;k++){
+      const sub = a.seq.substr(0,k);
+      if(checkSeq.includes(sub)){
+        warnings.push({sev:"bad",
+          msg:`Primer sequence contains a ≥${k}-bp match to ${a.name} (<code>${sub}</code>). Will create a recombination scar inside your insert. Redesign or use a hi-fi att-stripped primer.`});
+        break;
+      }
+    }
+  }
+  if(insertConc>0 && insertVolBP > 5){
+    warnings.push({sev:"warn",
+      msg:`BP needs ${round(insertVolBP,2)} µL of insert at ${insertConc} ng/µL. That leaves <1 µL of TE; consider concentrating the PCR product or accept a lower fmol target.`});
+  }
+  if(donorConc>0 && donorVolBP > 5){
+    warnings.push({sev:"warn",
+      msg:`BP needs ${round(donorVolBP,2)} µL of pDONR221 at ${donorConc} ng/µL. Consider diluting donor stock to ~150 ng/µL.`});
+  }
+  if(bpTE < 0){
+    warnings.push({sev:"bad",
+      msg:`Insert + donor + Clonase II already exceed 8 µL. Concentrate one or both inputs, or scale BP up to 10 µL (still permissible per Invitrogen manual).`});
+  }
+  if(pcrLen > 5000){
+    warnings.push({sev:"warn",
+      msg:`PCR product is ${pcrLen} bp — long-range. Use 30 s/kb extension as set; consider 1.5 mM extra Mg²⁺ or KAPA HiFi as fallback.`});
+  }
+
+  return {target, insertLen, addAttB, pcrLen, fwd, rev, fLen, rLen,
+    fTm, rTm, fGC, rGC,
+    rxnVol, nRxn, scale, buf, dntp, fwdVol, revVol, enz, tplVol, water, tplNgTarget,
+    mm, extDisplay, extSec,
+    insertNgNeeded, donorNgNeeded, insertVolBP, donorVolBP, bpClonase, bpTE, bpTotal,
+    m13Band, warnings, tplType, tplConc};
+}
+
+/* ===== Render ===== */
+function render(r){
+  const root = $("results");
+  if(!r){
+    root.innerHTML = `<div class="panel empty"><div class="big">Awaiting inputs</div>Enter primer sequences and insert length to generate a reaction-specific recipe.</div>`;
+    return;
+  }
+
+  const v = (n,d=2)=>round(n,d);
+
+  // Warning markup
+  const warnHTML = r.warnings.length
+    ? r.warnings.map(w=>`<div class="alert ${w.sev}">${w.msg}</div>`).join("")
+    : `<div class="alert good">No flags. Primers and stoichiometry within Chipman-lab defaults.</div>`;
+
+  const tplLabel = {gdna:"Oncopeltus genomic DNA", cdna:"cDNA / 1st-strand", plasmid:"Plasmid template"}[r.tplType];
+
+  root.innerHTML = `
+
+  <!-- Summary -->
+  <div class="panel">
+    <h2>Summary — ${escapeHTML(r.target)}</h2>
+    <div class="meta"><span class="k">Gene-of-interest:</span> ${r.insertLen} bp${r.addAttB?` · with attB tails → PCR product = <strong>${r.pcrLen} bp</strong>`:` (no attB tails)`}</div>
+    <div class="meta"><span class="k">Forward primer:</span> ${r.fLen} nt · Tm ≈ ${v(r.fTm,1)} °C · ${v(r.fGC,1)} % GC</div>
+    <div class="meta"><span class="k">Reverse primer:</span> ${r.rLen} nt · Tm ≈ ${v(r.rTm,1)} °C · ${v(r.rGC,1)} % GC</div>
+    <div class="meta"><span class="k">Polymerase:</span> Invitrogen Platinum SuperFi II · universal 60 °C anneal</div>
+    ${warnHTML}
+  </div>
+
+  <!-- PCR -->
+  <div class="panel">
+    <h2>① PCR — SuperFi II ${r.rxnVol} µL × ${r.nRxn} rxn</h2>
+    <table class="recipe">
+      <thead><tr><th>Component</th><th class="num">Per rxn (µL)</th><th class="num">Master mix (n+1, µL)</th><th>Final / note</th></tr></thead>
+      <tbody>
+        <tr><td>5× SuperFi II buffer</td><td class="num">${v(r.buf)}</td><td class="num">${v(r.mm.buf)}</td><td>1×, includes Mg²⁺</td></tr>
+        <tr><td>10 mM dNTP mix</td><td class="num">${v(r.dntp)}</td><td class="num">${v(r.mm.dntp)}</td><td>0.2 mM each</td></tr>
+        <tr><td>Forward primer (10 µM)</td><td class="num">${v(r.fwdVol)}</td><td class="num">${v(r.mm.fwd)}</td><td>0.5 µM</td></tr>
+        <tr><td>Reverse primer (10 µM)</td><td class="num">${v(r.revVol)}</td><td class="num">${v(r.mm.rev)}</td><td>0.5 µM</td></tr>
+        <tr><td>Template (${tplLabel}, ${r.tplConc} ng/µL)</td><td class="num">${v(r.tplVol)}</td><td>—</td><td>${v(r.tplNgTarget)} ng / rxn — add per-tube</td></tr>
+        <tr><td>Platinum SuperFi II (2 U/µL)</td><td class="num">${v(r.enz)}</td><td class="num">${v(r.mm.enz)}</td><td>1 U / 50 µL</td></tr>
+        <tr><td>Nuclease-free water</td><td class="num">${v(r.water)}</td><td class="num">${v(r.mm.water)}</td><td>to ${r.rxnVol} µL</td></tr>
+        <tr><td><strong>Total</strong></td><td class="num"><strong>${r.rxnVol}</strong></td><td class="num"><strong>${v((r.nRxn+1)*r.rxnVol - (r.nRxn+1)*r.tplVol)}</strong></td><td>Distribute MM, then add template</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Cycling (Platinum SuperFi II)</h3>
+    <table class="recipe">
+      <thead><tr><th>Step</th><th class="num">Temp</th><th class="num">Time</th><th>Cycles</th></tr></thead>
+      <tbody>
+        <tr><td>Initial denaturation</td><td class="num">98 °C</td><td class="num">30 s</td><td>1×</td></tr>
+        <tr><td>Denature</td><td class="num">98 °C</td><td class="num">10 s</td><td rowspan="3">30×</td></tr>
+        <tr><td>Anneal</td><td class="num">60 °C</td><td class="num">10 s</td></tr>
+        <tr><td>Extend</td><td class="num">72 °C</td><td class="num">${r.extDisplay}</td></tr>
+        <tr><td>Final extension</td><td class="num">72 °C</td><td class="num">5 min</td><td>1×</td></tr>
+        <tr><td>Hold</td><td class="num">4–10 °C</td><td class="num">∞</td><td>—</td></tr>
+      </tbody>
+    </table>
+    <div class="hint">Extension = 30 s/kb on a ${r.pcrLen} bp product. Increase to 45 s/kb if first attempt fails for high-GC.</div>
+  </div>
+
+  <!-- BP -->
+  <div class="panel">
+    <h2>② BP reaction — ${r.bpTotal} µL</h2>
+    <table class="recipe">
+      <thead><tr><th>Component</th><th class="num">µL</th><th class="num">ng</th><th class="num">fmol</th><th>Note</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Purified PCR product (attB-${r.target}, ${r.pcrLen} bp)</td>
+          <td class="num">${v(r.insertVolBP)}</td>
+          <td class="num">${v(r.insertNgNeeded)}</td>
+          <td class="num">${v(fmolFromNg(r.insertNgNeeded, r.pcrLen),1)}</td>
+          <td>Stock: ${$("insertConc").value} ng/µL</td>
+        </tr>
+        <tr>
+          <td>pDONR221 (4,762 bp)</td>
+          <td class="num">${v(r.donorVolBP)}</td>
+          <td class="num">${v(r.donorNgNeeded)}</td>
+          <td class="num">${v(fmolFromNg(r.donorNgNeeded, PDONR221_BP),1)}</td>
+          <td>Stock: ${$("donorConc").value} ng/µL</td>
+        </tr>
+        <tr><td>BP Clonase II enzyme mix</td><td class="num">${v(r.bpClonase)}</td><td>—</td><td>—</td><td>Add LAST, mix gently</td></tr>
+        <tr><td>TE pH 8.0</td><td class="num">${v(r.bpTE)}</td><td>—</td><td>—</td><td>To ${r.bpTotal} µL</td></tr>
+        <tr><td><strong>Total</strong></td><td class="num"><strong>${r.bpTotal}</strong></td><td>—</td><td>—</td><td>25 °C overnight (≥4 h)</td></tr>
+      </tbody>
+    </table>
+    <div class="hint">
+      fmol = (ng × 10⁶) / (660 × bp). For 50 fmol of an L-bp fragment: ng ≈ 0.033 × L.
+      Stop BP next morning with 1 µL Proteinase K (37 °C, 10 min) — important for clean transformations.
+    </div>
+  </div>
+
+  <!-- Verification -->
+  <div class="panel">
+    <h2>③ Colony PCR / Sanger expectation</h2>
+    <table class="recipe">
+      <thead><tr><th>Check</th><th>Expected</th></tr></thead>
+      <tbody>
+        <tr><td>Colony PCR with M13F/M13R on entry clones</td><td>≈ <strong>${r.m13Band} bp</strong> band (M13F flank ${M13F_FLANK} + ${r.pcrLen} insert + M13R flank ${M13R_FLANK})</td></tr>
+        <tr><td>Empty pDONR221 (re-isolated ccdB cassette)</td><td>≈ ${M13F_FLANK + 1700 + M13R_FLANK} bp — <strong>do not pick</strong></td></tr>
+        <tr><td>Sanger sequencing</td><td>M13F + M13R + internal walking primers every ~700 bp; use dGTP BigDye through att junctions</td></tr>
+        <tr><td>Selection</td><td>LB-Kan50 (entry clones) · drop Cm — cassette is gone post-BP</td></tr>
+        <tr><td>Outgrowth (Stbl3)</td><td>90–120 min at 30 °C in SOC before plating Kan50</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <details>
+    <summary>Show calculation breakdown</summary>
+    <div class="body">
+      <p><strong>fmol of insert at 1 ng:</strong> 1 × 10⁶ / (660 × ${r.pcrLen}) = ${v(fmolFromNg(1, r.pcrLen),3)} fmol/ng → for ${$("bpInsertFmol").value} fmol need <strong>${v(r.insertNgNeeded)} ng</strong>.</p>
+      <p><strong>fmol of pDONR221 at 1 ng:</strong> 1 × 10⁶ / (660 × ${PDONR221_BP}) = ${v(fmolFromNg(1, PDONR221_BP),4)} fmol/ng → for ${$("bpDonorFmol").value} fmol need <strong>${v(r.donorNgNeeded)} ng</strong>.</p>
+      <p><strong>Template per PCR rxn:</strong> ${tplLabel} → target ${v(r.tplNgTarget)} ng → ${v(r.tplVol)} µL of ${r.tplConc} ng/µL stock.</p>
+      <p><strong>PCR scale factor:</strong> ${r.rxnVol}/50 = ${r.scale}.</p>
+    </div>
+  </details>
+  `;
+}
+
+function escapeHTML(s){return s.replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));}
+
+/* ===== Bind ===== */
+function refresh(){ render(compute()); }
+document.querySelectorAll("input,select,textarea").forEach(el=>{
+  el.addEventListener("input", refresh);
+  el.addEventListener("change", refresh);
+});
+$("calcBtn").addEventListener("click", refresh);
+
+/* Initial demo state — leave empty, user fills in */
+refresh();
+</script>
+</body>
+</html>
