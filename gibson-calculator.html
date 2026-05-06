@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gibson / NEBuilder HiFi Assembly Calculator</title>
+<style>
+  :root {
+    --blue: #14407a;
+    --accent: #2e5c8a;
+    --warn: #b85c00;
+    --err: #b02020;
+    --ok: #1f7a3a;
+    --bg: #f6f7fb;
+    --card: #ffffff;
+    --muted: #666;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    margin: 0; background: var(--bg); color: #222; line-height: 1.45;
+  }
+  header {
+    background: linear-gradient(135deg, var(--blue), #1e5a9c);
+    color: #fff; padding: 22px 24px;
+  }
+  header h1 { margin: 0; font-size: 22px; font-weight: 600; }
+  header p { margin: 4px 0 0 0; opacity: 0.9; font-size: 13px; }
+  main { max-width: 1180px; margin: 0 auto; padding: 20px; }
+  .card {
+    background: var(--card); border: 1px solid #e5e7eb;
+    border-radius: 8px; padding: 18px 20px; margin-bottom: 16px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  }
+  h2 { color: var(--blue); border-bottom: 1px solid #e5e7eb; padding-bottom: 8px; margin: 0 0 14px 0; font-size: 15px; }
+  label { display: block; font-size: 11px; color: #555; margin-bottom: 3px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.03em; }
+  input[type="number"], input[type="text"], select {
+    padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; font-size: 13px; width: 100%;
+    background: #fff; color: #222;
+  }
+  input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); }
+  .controls {
+    display: grid; gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    margin-bottom: 12px;
+  }
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  button {
+    background: var(--blue); color: white; border: none;
+    padding: 8px 14px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: 500;
+  }
+  button:hover { background: var(--accent); }
+  button.secondary { background: #e5e7eb; color: #333; }
+  button.secondary:hover { background: #d1d5db; }
+  button.ghost { background: transparent; color: var(--err); border: 1px solid #ddd; padding: 3px 8px; font-size: 11px; }
+  button.ghost:hover { background: #fff1f1; border-color: var(--err); }
+  .frag-grid {
+    display: grid; gap: 8px;
+    grid-template-columns: 1.8fr 0.9fr 0.8fr 0.9fr 0.7fr 0.9fr 1.1fr 0.4fr;
+    align-items: end;
+    font-size: 12px;
+  }
+  .frag-grid.header-row {
+    font-weight: 600; font-size: 10px; color: #555;
+    background: #eef2f8; padding: 8px 6px; border-radius: 4px; margin-bottom: 6px;
+    text-transform: uppercase; letter-spacing: 0.03em;
+  }
+  .frag-row { margin-bottom: 6px; padding: 6px 6px; border-radius: 4px; }
+  .frag-row:nth-child(even) { background: #fafbfd; }
+  .frag-row .computed {
+    font-size: 11px; color: var(--muted); padding: 4px 6px; background: #f3f4f6; border-radius: 3px;
+    text-align: right; font-variant-numeric: tabular-nums;
+  }
+  .alert {
+    padding: 8px 12px; border-radius: 4px; font-size: 13px; margin: 5px 0;
+    line-height: 1.4;
+  }
+  .alert.ok { background: #e8f5e9; color: var(--ok); border-left: 3px solid var(--ok); }
+  .alert.warn { background: #fff8e1; color: var(--warn); border-left: 3px solid var(--warn); }
+  .alert.err { background: #ffebee; color: var(--err); border-left: 3px solid var(--err); }
+  .recipe { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 4px; }
+  .recipe th, .recipe td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #eee; vertical-align: top; }
+  .recipe th { background: #eef2f8; color: var(--blue); font-size: 11px; text-transform: uppercase; letter-spacing: 0.03em; }
+  .recipe td small { color: var(--muted); font-size: 11px; }
+  .recipe tr.subtotal td { background: #fafbfd; font-weight: 500; }
+  .recipe tr.total td { background: #eef2f8; font-weight: 600; color: var(--blue); border-bottom: none; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .section-note { font-size: 12px; color: var(--muted); margin: 2px 0 12px 0; }
+  .rules-list { padding-left: 18px; margin: 6px 0; font-size: 13px; }
+  .rules-list li { margin-bottom: 6px; }
+  code { background: #f3f4f6; padding: 1px 5px; border-radius: 3px; font-size: 12px; font-family: Consolas, Monaco, monospace; }
+  .footnote {
+    font-size: 11px; color: var(--muted); margin-top: 16px;
+    padding-top: 12px; border-top: 1px solid #e5e7eb;
+  }
+  .badge { display: inline-block; padding: 1px 6px; border-radius: 10px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+  .badge.vector { background: #e7f0fb; color: #14407a; }
+  .badge.insert { background: #fdf0e2; color: #a85c00; }
+  @media (max-width: 900px) {
+    .frag-grid { grid-template-columns: 1fr 1fr; }
+    .frag-grid.header-row { display: none; }
+    .frag-row { background: #fafbfd !important; border: 1px solid #e5e7eb; margin-bottom: 10px; }
+  }
+  @media print {
+    header, .actions, button, #fragmentsCard h2, #recipeCard h2 { page-break-inside: avoid; }
+    body { background: white; }
+    .card { box-shadow: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Gibson / NEBuilder HiFi Assembly Calculator</h1>
+  <p>Plug in bp and ng/µL for each fragment — get pipette volumes that pass NEB and Bill's rules.</p>
+</header>
+<main>
+
+<div class="card">
+  <h2>1. Reaction setup</h2>
+  <div class="controls">
+    <div>
+      <label>Reaction scale</label>
+      <select id="scale">
+        <option value="20">20 µL (NEB default)</option>
+        <option value="5" selected>5 µL (Bill's scale-down)</option>
+        <option value="custom">Custom</option>
+      </select>
+    </div>
+    <div>
+      <label>Total rxn volume (µL)</label>
+      <input id="totalVol" type="number" value="5" step="0.5" min="1" />
+    </div>
+    <div>
+      <label># fragments</label>
+      <select id="nFrag">
+        <option value="2">2</option>
+        <option value="3" selected>3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+        <option value="6">6</option>
+      </select>
+    </div>
+    <div>
+      <label>Target total pmol</label>
+      <input id="targetTotalPmol" type="number" value="0.03" step="0.005" min="0" />
+    </div>
+    <div>
+      <label>Vector : insert ratio</label>
+      <select id="ratio">
+        <option value="1:1">1 : 1 (equimolar)</option>
+        <option value="1:2" selected>1 : 2 (NEB default, 2-3 frag)</option>
+        <option value="1:5">1 : 5 (small insert &lt; 200 bp)</option>
+      </select>
+    </div>
+  </div>
+  <div class="actions">
+    <button class="secondary" onclick="loadBillExample()">Load Bill's pMEGA example</button>
+    <button class="secondary" onclick="clearValues()">Clear values</button>
+    <button class="secondary" onclick="window.print()">Print / save PDF</button>
+  </div>
+  <div class="section-note" style="margin-top:12px;">
+    The target pmol is split across fragments using your vector:insert ratio. Default target totals: <strong>0.03 pmol</strong> for 5 µL, <strong>0.10 pmol</strong> for 20 µL (well under NEB's 0.03-0.2 pmol range and Bill's 0.01 pmol/µL cap).
+  </div>
+</div>
+
+<div class="card" id="fragmentsCard">
+  <h2>2. Fragments</h2>
+  <div class="section-note">
+    Enter <strong>bp length</strong> and <strong>stock concentration (ng/µL)</strong>. Mark each as vector or insert. Dilution defaults to 1 (none); override if you want to dilute a highly-concentrated stock with nuclease-free water. Auto-dilution kicks in if a fragment would need to be pipetted at &lt; 0.5 µL.
+  </div>
+  <div class="frag-grid header-row">
+    <div>Name</div>
+    <div>Role</div>
+    <div>bp</div>
+    <div>Stock ng/µL</div>
+    <div>Dilute 1:N</div>
+    <div>Target pmol</div>
+    <div>Working (computed)</div>
+    <div></div>
+  </div>
+  <div id="fragments"></div>
+</div>
+
+<div class="card" id="recipeCard">
+  <h2>3. Pipetting recipe</h2>
+  <div id="recipe"></div>
+</div>
+
+<div class="card">
+  <h2>4. Rule checks</h2>
+  <div id="warnings"></div>
+</div>
+
+<div class="card">
+  <h2>5. Bill's three rules (reference)</h2>
+  <ol class="rules-list">
+    <li><strong>Rule 1 — pmol cap.</strong> Total DNA in the reaction ≤ <code>0.01 pmol/µL</code> of reaction volume. That's ≤ 0.05 pmol in a 5 µL rxn and ≤ 0.2 pmol in a 20 µL rxn. <em>(Bill's Apr 14, 2026 correction — he first wrote 0.1 and corrected himself.)</em></li>
+    <li><strong>Rule 2 — 40 % carry-over cap.</strong> Sum of fragment volumes ≤ 40 % of total reaction (≤ 2 µL in 5 µL; ≤ 8 µL in 20 µL). <strong>Dilution with water doesn't count</strong> — only the undiluted-equivalent volume is charged against the cap. So diluting an over-concentrated fragment literally buys you room.</li>
+    <li><strong>Rule 3 — Ice → 50 °C, no warming.</strong> Set up on ice, transfer directly to the 50 °C block. Don't let the tube reach room temperature. Higher starting T disfavors excessive 5' exonuclease chew-back (this is what makes HiFi accurate). Bill's most common past failure mode.</li>
+  </ol>
+</div>
+
+<div class="card">
+  <h2>6. Protocol (after pipetting)</h2>
+  <ol style="font-size: 13px; padding-left: 20px;">
+    <li>Pipette the recipe above on ice. Water first, then fragments, then 2× HiFi master mix (thawed, pulse-vortexed, spun).</li>
+    <li>Transfer directly to 50 °C. Hold <strong>15 min for 2-3 fragments</strong> or <strong>60 min for 4-6 fragments</strong>.</li>
+    <li>Put on ice (or freeze at -20 °C) until transformation.</li>
+    <li>Transform 1-2 µL of chilled reaction into 25-50 µL NEB 5-alpha (or 10-beta if &gt; 10 kb). 30 min on ice → 42 °C × 30 s → 2-5 min ice → add 950 µL SOC → 37 °C, 250 rpm, 60 min → plate on amp. Overnight at 37 °C.</li>
+  </ol>
+</div>
+
+<p class="footnote">
+Math: <code>pmol = ng × 1000 / (bp × 650)</code>, assuming 650 Da/bp for dsDNA. Equivalently <code>fmol/µL = (ng/µL × 1000) / (bp × 0.650)</code>.
+Sources: NEBuilder HiFi manual v6.0_1/26 (NEB #E2621S/L/X, E5520S); Bill Reid correspondence Apr 2-14, 2026; <em>pMEGA-HiFi-table.docx</em>.
+Tool built for Ariel Bar Lev Viterbo (Chipman lab, HUJI).
+</p>
+
+</main>
+
+<script>
+const DEFAULT_NAMES = [
+  'Fragment A', 'Fragment B', 'Fragment C',
+  'Fragment D', 'Fragment E', 'Fragment F'
+];
+
+function fmolPerUl(ng, bp) {
+  if (!ng || !bp || bp <= 0) return 0;
+  return (ng * 1000) / (bp * 0.650);
+}
+
+function renderFragmentRows() {
+  const n = parseInt(document.getElementById('nFrag').value);
+  const container = document.getElementById('fragments');
+  const oldRows = Array.from(container.querySelectorAll('.frag-row')).map(r => ({
+    name: r.querySelector('.name').value,
+    role: r.querySelector('.role').value,
+    bp: r.querySelector('.bp').value,
+    ng: r.querySelector('.ng').value,
+    dilution: r.querySelector('.dilution').value,
+    customPmol: r.querySelector('.custom-pmol').value,
+  }));
+  container.innerHTML = '';
+  for (let i = 0; i < n; i++) {
+    const old = oldRows[i] || {};
+    const row = document.createElement('div');
+    row.className = 'frag-grid frag-row';
+    const defaultRole = old.role || (i === 0 ? 'vector' : 'insert');
+    row.innerHTML = `
+      <input class="name" type="text" value="${escapeAttr(old.name || DEFAULT_NAMES[i] || ('Fragment ' + (i+1)))}" />
+      <select class="role">
+        <option value="vector" ${defaultRole === 'vector' ? 'selected' : ''}>vector</option>
+        <option value="insert" ${defaultRole === 'insert' ? 'selected' : ''}>insert</option>
+      </select>
+      <input class="bp"       type="number" value="${escapeAttr(old.bp || '')}"       placeholder="bp"    min="1" step="1" />
+      <input class="ng"       type="number" value="${escapeAttr(old.ng || '')}"       placeholder="ng/µL" min="0" step="0.1" />
+      <input class="dilution" type="number" value="${escapeAttr(old.dilution || 1)}"  min="1" step="1" title="1 = undiluted. 3 = 1:3 (1 part stock + 2 parts water)" />
+      <input class="custom-pmol" type="number" value="${escapeAttr(old.customPmol || '')}" placeholder="auto" min="0" step="0.001" title="Leave blank to auto-split target pmol by ratio" />
+      <div class="computed"></div>
+      <button class="ghost" title="Remove fragment" onclick="removeFragment(this)">×</button>
+    `;
+    container.appendChild(row);
+  }
+  // wire listeners
+  container.querySelectorAll('input, select').forEach(el => {
+    el.addEventListener('input', recompute);
+    el.addEventListener('change', recompute);
+  });
+  recompute();
+}
+
+function escapeAttr(v) { return String(v).replace(/"/g, '&quot;'); }
+
+function removeFragment(btn) {
+  const row = btn.closest('.frag-row');
+  row.remove();
+  const n = document.querySelectorAll('.frag-row').length;
+  document.getElementById('nFrag').value = n;
+  recompute();
+}
+
+function syncScale() {
+  const s = document.getElementById('scale').value;
+  if (s !== 'custom') {
+    document.getElementById('totalVol').value = s;
+    // also pick sensible default target total pmol
+    const el = document.getElementById('targetTotalPmol');
+    if (s === '5') el.value = 0.03;
+    else if (s === '20') el.value = 0.10;
+  }
+  recompute();
+}
+
+function recompute() {
+  const totalVol = parseFloat(document.getElementById('totalVol').value) || 0;
+  const targetTotalPmol = parseFloat(document.getElementById('targetTotalPmol').value) || 0;
+  const ratio = document.getElementById('ratio').value;
+  const [rV, rI] = ratio.split(':').map(Number);
+
+  // Collect fragment inputs
+  const rows = Array.from(document.querySelectorAll('.frag-row'));
+  const frags = rows.map(r => ({
+    el: r,
+    name: r.querySelector('.name').value.trim() || 'Fragment',
+    role: r.querySelector('.role').value,
+    bp: parseFloat(r.querySelector('.bp').value),
+    ng: parseFloat(r.querySelector('.ng').value),
+    dilution: Math.max(1, parseFloat(r.querySelector('.dilution').value) || 1),
+    customPmol: parseFloat(r.querySelector('.custom-pmol').value),
+  }));
+
+  // Distribute targetTotalPmol across fragments by vector:insert ratio
+  const nVec = frags.filter(f => f.role === 'vector').length;
+  const nIns = frags.filter(f => f.role === 'insert').length;
+  // weight = rV for vector, rI for insert
+  const totalWeight = nVec * rV + nIns * rI;
+  frags.forEach(f => {
+    if (!isNaN(f.customPmol) && f.customPmol > 0) {
+      f.pmolTarget = f.customPmol;
+    } else if (totalWeight > 0) {
+      const w = f.role === 'vector' ? rV : rI;
+      f.pmolTarget = targetTotalPmol * w / totalWeight;
+    } else {
+      f.pmolTarget = 0;
+    }
+  });
+
+  // For each fragment, compute working concentration and volume needed
+  let totalFragVol = 0;
+  let totalUndilutedEquivVol = 0;
+  let totalPmol = 0;
+  let warnings = [];
+
+  frags.forEach(f => {
+    const computed = f.el.querySelector('.computed');
+    if (!f.bp || !f.ng) {
+      computed.textContent = '—';
+      computed.title = '';
+      f.vol = 0;
+      f.workingFmolUl = 0;
+      return;
+    }
+    const stockFmolUl = fmolPerUl(f.ng, f.bp);
+    const workingNg = f.ng / f.dilution;
+    const workingFmolUl = fmolPerUl(workingNg, f.bp);
+    const fmolTarget = f.pmolTarget * 1000;
+    const vol = workingFmolUl > 0 ? fmolTarget / workingFmolUl : 0;
+    const undilutedEquivVol = vol / f.dilution;
+
+    f.workingNg = workingNg;
+    f.workingFmolUl = workingFmolUl;
+    f.stockFmolUl = stockFmolUl;
+    f.vol = vol;
+    f.undilutedEquivVol = undilutedEquivVol;
+
+    computed.innerHTML =
+      `Stock <b>${stockFmolUl.toFixed(1)}</b> fmol/µL<br>` +
+      `Working <b>${workingFmolUl.toFixed(1)}</b> fmol/µL<br>` +
+      `Add <b>${vol.toFixed(2)}</b> µL → <b>${f.pmolTarget.toFixed(4)}</b> pmol`;
+    computed.title = `Undiluted-equivalent volume: ${undilutedEquivVol.toFixed(2)} µL`;
+
+    totalFragVol += vol;
+    totalUndilutedEquivVol += undilutedEquivVol;
+    totalPmol += f.pmolTarget;
+  });
+
+  // Build recipe table
+  const masterMixVol = totalVol / 2;
+  const premixVol = totalVol - masterMixVol;
+  const waterVol = premixVol - totalFragVol;
+
+  let html = '<table class="recipe">';
+  html += '<tr><th>Component</th><th class="num">Volume (µL)</th><th class="num">pmol</th><th>Notes</th></tr>';
+  frags.forEach(f => {
+    if (!f.bp || !f.ng) {
+      html += `<tr><td>${escapeHtml(f.name)} <span class="badge ${f.role}">${f.role}</span></td><td class="num">—</td><td class="num">—</td><td><em style="color:#999">fill in bp and ng/µL</em></td></tr>`;
+      return;
+    }
+    const notes = [];
+    if (f.dilution > 1) notes.push(`Diluted 1:${f.dilution} (1 part stock + ${f.dilution - 1} parts water).`);
+    if (f.vol < 0.5 && f.vol > 0) notes.push(`<span style="color:${'var(--warn)'}">Volume &lt; 0.5 µL — consider increasing dilution, or pre-mix with another fragment.</span>`);
+    if (f.vol > premixVol) notes.push(`<span style="color:${'var(--err)'}">Exceeds premix capacity.</span>`);
+    html += `<tr><td><strong>${escapeHtml(f.name)}</strong> <span class="badge ${f.role}">${f.role}</span><br><small>${f.bp} bp, ${f.ng} ng/µL stock</small></td><td class="num">${f.vol.toFixed(2)}</td><td class="num">${f.pmolTarget.toFixed(4)}</td><td>${notes.join(' ')}</td></tr>`;
+  });
+  if (waterVol > 0.005) {
+    html += `<tr><td>Nuclease-free water</td><td class="num">${waterVol.toFixed(2)}</td><td class="num">—</td><td>Balance to fragments-plus-water premix volume.</td></tr>`;
+  } else if (waterVol < -0.005) {
+    html += `<tr><td colspan="4" style="padding:0"><div class="alert err">Fragment volumes total ${totalFragVol.toFixed(2)} µL but premix capacity is ${premixVol.toFixed(2)} µL. Dilute more, reduce target pmol, or scale the reaction up.</div></td></tr>`;
+  }
+  html += `<tr class="subtotal"><td><strong>Fragments-plus-water premix (on ice)</strong></td><td class="num"><strong>${premixVol.toFixed(2)}</strong></td><td class="num"><strong>${totalPmol.toFixed(4)}</strong></td><td><em>For 5 µL scale: make 10 µL of this premix and aliquot 2.5 µL — saves master mix (Bill's trick).</em></td></tr>`;
+  html += `<tr><td>2× NEBuilder HiFi Master Mix</td><td class="num">${masterMixVol.toFixed(2)}</td><td class="num">—</td><td>Thaw fully on ice, pulse-vortex, spin down (crystals can sublimate to the cap).</td></tr>`;
+  html += `<tr class="total"><td><strong>TOTAL reaction</strong></td><td class="num"><strong>${totalVol.toFixed(2)}</strong></td><td class="num"><strong>${totalPmol.toFixed(4)}</strong></td><td><strong>50 °C × 15 min (2-3 frags) or 60 min (4-6 frags).</strong></td></tr>`;
+  html += '</table>';
+  document.getElementById('recipe').innerHTML = html;
+
+  // Warnings
+  const warns = [];
+  // Rule 1
+  const pmolPerUl = totalVol > 0 ? totalPmol / totalVol : 0;
+  if (totalPmol === 0) {
+    warns.push(['warn', 'No fragments filled in yet.']);
+  } else if (pmolPerUl > 0.01) {
+    warns.push(['err', `<strong>Rule 1 violated:</strong> total DNA = ${pmolPerUl.toFixed(4)} pmol/µL (cap 0.01). Lower target pmol or reduce fragment input.`]);
+  } else {
+    warns.push(['ok', `<strong>Rule 1 ✓</strong> total DNA = ${pmolPerUl.toFixed(4)} pmol/µL (cap 0.01).`]);
+  }
+  // Rule 2
+  const carryoverPct = totalVol > 0 ? (totalUndilutedEquivVol / totalVol) * 100 : 0;
+  if (totalPmol === 0) {
+    // skip
+  } else if (carryoverPct > 40) {
+    warns.push(['err', `<strong>Rule 2 violated:</strong> PCR-product carry-over = ${carryoverPct.toFixed(1)}% (cap 40%). Dilute one or more fragments — dilution volume doesn't count against the cap, only undiluted-equivalent does (currently ${totalUndilutedEquivVol.toFixed(2)} µL).`]);
+  } else {
+    warns.push(['ok', `<strong>Rule 2 ✓</strong> PCR-product carry-over = ${carryoverPct.toFixed(1)}% (cap 40%; undiluted-equivalent volume = ${totalUndilutedEquivVol.toFixed(2)} µL of ${totalVol} µL).`]);
+  }
+  // NEB range
+  const nFrag = frags.length;
+  let nebMin, nebMax;
+  if (nFrag <= 3) { nebMin = 0.03; nebMax = 0.2; }
+  else { nebMin = 0.2; nebMax = 0.5; }
+  if (totalPmol > 0) {
+    if (totalPmol < nebMin * (totalVol / 20)) {
+      warns.push(['warn', `Total DNA (${totalPmol.toFixed(4)} pmol) is below NEB's scaled recommendation of ${(nebMin * totalVol / 20).toFixed(3)} pmol for ${nFrag} fragments in a ${totalVol} µL reaction. Assembly may still work at low input — Bill's examples run here — but consider bumping up if no colonies.`]);
+    } else if (totalPmol > nebMax * (totalVol / 20)) {
+      warns.push(['warn', `Total DNA (${totalPmol.toFixed(4)} pmol) exceeds NEB's scaled recommendation of ${(nebMax * totalVol / 20).toFixed(3)} pmol for ${nFrag} fragments in a ${totalVol} µL reaction.`]);
+    } else {
+      warns.push(['ok', `Total DNA (${totalPmol.toFixed(4)} pmol) within NEB's range for ${nFrag} fragments in ${totalVol} µL.`]);
+    }
+  }
+  // Small-volume warning
+  const small = frags.filter(f => f.vol > 0 && f.vol < 0.5);
+  if (small.length) {
+    warns.push(['warn', `${small.length} fragment(s) need < 0.5 µL to pipette. Options: (a) increase the dilution 1:N so you can pipette a bigger volume, (b) use <strong>Bill's pre-mix trick</strong> — combine two fragments in a separate tube at a larger volume, then pipette a single 1 µL aliquot of the pre-mix into the reaction.`]);
+  }
+  // Rule 3 reminder (always shown)
+  warns.push(['ok', `<strong>Rule 3 reminder:</strong> set up on ice, transfer directly to 50 °C. Do not let the reaction warm to room temperature before incubation.`]);
+
+  document.getElementById('warnings').innerHTML = warns.map(([cls, msg]) =>
+    `<div class="alert ${cls}">${msg}</div>`
+  ).join('');
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[c]));
+}
+
+function loadBillExample() {
+  document.getElementById('scale').value = '5';
+  document.getElementById('totalVol').value = 5;
+  document.getElementById('targetTotalPmol').value = 0.03;
+  document.getElementById('nFrag').value = 3;
+  document.getElementById('ratio').value = '1:1';
+  renderFragmentRows();
+  // NOTE: IntP2'B' bp is back-calculated from Bill's "40 ng/µL -> 21.8 fmol/µL"
+  //       ~2823 bp. Prior-session's ~1100 bp was inconsistent with Bill's fmol/µL.
+  const data = [
+    { name: 'pMEGA-1 (vector, larger)',  role: 'vector', bp: 6650, ng: 48,  dilution: 1, pmol: 0.012 },
+    { name: 'pMEGA-2 (vector, smaller)', role: 'vector', bp: 2978, ng: 148, dilution: 3, pmol: 0.013 },
+    { name: "IntP2'B' (insert)",         role: 'insert', bp: 2823, ng: 161, dilution: 4, pmol: 0.011 }
+  ];
+  const rows = document.querySelectorAll('.frag-row');
+  data.forEach((d, i) => {
+    if (!rows[i]) return;
+    rows[i].querySelector('.name').value = d.name;
+    rows[i].querySelector('.role').value = d.role;
+    rows[i].querySelector('.bp').value = d.bp;
+    rows[i].querySelector('.ng').value = d.ng;
+    rows[i].querySelector('.dilution').value = d.dilution;
+    rows[i].querySelector('.custom-pmol').value = d.pmol;
+  });
+  recompute();
+}
+
+function clearValues() {
+  document.querySelectorAll('.frag-row').forEach(r => {
+    r.querySelector('.bp').value = '';
+    r.querySelector('.ng').value = '';
+    r.querySelector('.dilution').value = 1;
+    r.querySelector('.custom-pmol').value = '';
+  });
+  recompute();
+}
+
+// Wire top-level controls
+document.getElementById('scale').addEventListener('change', syncScale);
+document.getElementById('totalVol').addEventListener('input', recompute);
+document.getElementById('nFrag').addEventListener('change', renderFragmentRows);
+document.getElementById('targetTotalPmol').addEventListener('input', recompute);
+document.getElementById('ratio').addEventListener('change', recompute);
+
+// Initial render
+renderFragmentRows();
+</script>
+</body>
+</html>
