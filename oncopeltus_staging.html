@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Oncopeltus fasciatus — Egg Staging Calculator</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 15px; background: #f5f5f3; color: #1a1a1a; min-height: 100vh; padding: 2rem 1rem; }
+  h1 { font-size: 18px; font-weight: 500; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #666; margin-bottom: 1.5rem; font-style: italic; }
+  .container { max-width: 760px; margin: 0 auto; }
+  .card { background: #fff; border: 1px solid #e0e0dc; border-radius: 12px; padding: 1.25rem; margin-bottom: 1rem; }
+  .tabs { display: flex; gap: 0; margin-bottom: 1rem; border: 1px solid #e0e0dc; border-radius: 8px; overflow: hidden; width: fit-content; }
+  .tab { padding: 8px 20px; font-size: 13px; cursor: pointer; background: #f5f5f3; color: #666; border: none; font-family: inherit; transition: background 0.15s; }
+  .tab.active { background: #fff; color: #1a1a1a; font-weight: 500; }
+  .tab:hover:not(.active) { background: #ececea; }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 0.75rem; }
+  .field { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 130px; }
+  label { font-size: 13px; color: #555; }
+  input { width: 100%; padding: 7px 10px; border: 1px solid #d0d0cc; border-radius: 7px; font-size: 14px; font-family: inherit; background: #fff; color: #1a1a1a; outline: none; }
+  input:focus { border-color: #4a7fc1; box-shadow: 0 0 0 2px rgba(74,127,193,0.15); }
+  .hint { font-size: 11px; color: #999; margin-top: 2px; }
+  .toggle-row { display: flex; align-items: center; gap: 8px; margin-bottom: 0.75rem; }
+  .toggle-row label { font-size: 13px; color: #555; margin: 0; }
+  input[type=checkbox] { width: auto; cursor: pointer; }
+  .section-label { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: .05em; margin: 1.25rem 0 0.5rem; }
+  .result-list { display: flex; flex-direction: column; gap: 6px; }
+  .result-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: 8px; border: 1px solid #e0e0dc; background: #fff; }
+  .result-item.best { background: #eef4fb; border-color: #b0ccea; }
+  .result-item.offhours { background: #fafaf8; border-color: #e0e0dc; opacity: 0.8; }
+  .ri-left { display: flex; flex-direction: column; gap: 2px; }
+  .ri-main { font-size: 14px; font-weight: 500; color: #1a1a1a; }
+  .ri-sub { font-size: 12px; color: #666; }
+  .result-item.best .ri-main { color: #2563a8; }
+  .badge { font-size: 11px; padding: 3px 9px; border-radius: 6px; white-space: nowrap; }
+  .badge.ok { background: #e6f4ee; color: #2a7a4b; }
+  .badge.off { background: #fdf3e0; color: #8a6200; }
+  .summary { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 1rem; }
+  .metric { background: #f5f5f3; border-radius: 8px; padding: 0.6rem 1rem; flex: 1; min-width: 90px; }
+  .metric-label { font-size: 11px; color: #888; }
+  .metric-val { font-size: 16px; font-weight: 500; color: #1a1a1a; }
+  .empty { color: #aaa; font-size: 13px; padding: 1.5rem; text-align: center; }
+  .divider { height: 1px; background: #e8e8e4; margin: 1rem 0; }
+  footer { text-align: center; font-size: 12px; color: #aaa; margin-top: 2rem; }
+  .tab-desc { font-size: 13px; color: #777; margin-bottom: 0.75rem; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Egg Staging Calculator</h1>
+  <p class="subtitle">Oncopeltus fasciatus · AEL window planner</p>
+
+  <div class="tabs">
+    <button class="tab active" onclick="setMode('forward',this)">Plan fixation</button>
+    <button class="tab" onclick="setMode('reverse',this)">Plan collection</button>
+    <button class="tab" onclick="setMode('check',this)">What AEL will I get?</button>
+  </div>
+
+  <div id="forward-panel">
+    <p class="tab-desc">I know when I'm collecting — tell me when to fix to hit a target age.</p>
+    <div class="card">
+      <div style="display:flex;gap:1.5rem;flex-wrap:wrap;margin-bottom:0.75rem">
+        <div class="toggle-row" style="margin:0">
+          <input type="checkbox" id="f-use-date" onchange="toggleDate('f')">
+          <label for="f-use-date">Use specific dates</label>
+        </div>
+        <div class="toggle-row" style="margin:0">
+          <input type="checkbox" id="f-series" onchange="toggleSeries()">
+          <label for="f-series">Series of fixations</label>
+        </div>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Collection start</label>
+          <div style="display:flex;gap:6px">
+            <input type="date" id="f-col-date" style="display:none;flex:1.5" oninput="renderForward()">
+            <input type="time" id="f-col-time" value="10:00" step="60" style="flex:1" oninput="renderForward()">
+          </div>
+        </div>
+        <div class="field">
+          <label>Window duration (h)</label>
+          <input type="number" id="f-col-dur" value="2" min="0.25" max="24" step="0.25" oninput="renderForward()">
+          <span class="hint">How long eggs accumulate before removal</span>
+        </div>
+        <div class="field">
+          <label>Target AEL from (h)</label>
+          <input type="number" id="f-tlo" value="24" min="0" max="200" step="0.5" oninput="renderForward()">
+        </div>
+        <div class="field">
+          <label>Target AEL to (h)</label>
+          <input type="number" id="f-thi" value="32" min="0" max="200" step="0.5" oninput="renderForward()">
+        </div>
+        <div class="field" id="f-interval-field" style="display:none">
+          <label>Series interval (h)</label>
+          <input type="number" id="f-interval" value="1" min="0.25" max="12" step="0.25" oninput="renderForward()">
+          <span class="hint">Time between fixations</span>
+        </div>
+      </div>
+    </div>
+    <div id="forward-out"></div>
+  </div>
+
+  <div id="reverse-panel" style="display:none">
+    <p class="tab-desc">I know when I need to fix — tell me when to start collecting to hit a target age.</p>
+    <div class="card">
+      <div class="toggle-row">
+        <input type="checkbox" id="r-use-date" onchange="toggleDate('r')">
+        <label for="r-use-date">Use specific dates</label>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Fixation time</label>
+          <div style="display:flex;gap:6px">
+            <input type="date" id="r-fix-date" style="display:none;flex:1.5" oninput="renderReverse()">
+            <input type="time" id="r-fix-time" value="10:00" step="60" style="flex:1" oninput="renderReverse()">
+          </div>
+        </div>
+        <div class="field">
+          <label>Window duration (h)</label>
+          <input type="number" id="r-col-dur" value="2" min="0.25" max="24" step="0.25" oninput="renderReverse()">
+        </div>
+        <div class="field">
+          <label>Target AEL from (h)</label>
+          <input type="number" id="r-tlo" value="24" min="0" max="200" step="0.5" oninput="renderReverse()">
+        </div>
+        <div class="field">
+          <label>Target AEL to (h)</label>
+          <input type="number" id="r-thi" value="32" min="0" max="200" step="0.5" oninput="renderReverse()">
+        </div>
+      </div>
+    </div>
+    <div id="reverse-out"></div>
+  </div>
+
+  <div id="check-panel" style="display:none">
+    <p class="tab-desc">I already have a collection and a fixation time — tell me how old the embryos will be.</p>
+    <div class="card">
+      <div class="toggle-row">
+        <input type="checkbox" id="c-use-date" onchange="toggleDate('c')">
+        <label for="c-use-date">Use specific dates</label>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label>Collection start</label>
+          <div style="display:flex;gap:6px">
+            <input type="date" id="c-col-date" style="display:none;flex:1.5" oninput="renderCheck()">
+            <input type="time" id="c-col-time" value="09:00" step="60" style="flex:1" oninput="renderCheck()">
+          </div>
+        </div>
+        <div class="field">
+          <label>Collection end</label>
+          <div style="display:flex;gap:6px">
+            <input type="date" id="c-col-end-date" style="display:none;flex:1.5" oninput="renderCheck()">
+            <input type="time" id="c-col-end-time" value="12:00" step="60" style="flex:1" oninput="renderCheck()">
+          </div>
+        </div>
+        <div class="field">
+          <label>Fixation time</label>
+          <div style="display:flex;gap:6px">
+            <input type="date" id="c-fix-date" style="display:none;flex:1.5" oninput="renderCheck()">
+            <input type="time" id="c-fix-time" value="14:00" step="60" style="flex:1" oninput="renderCheck()">
+          </div>
+        </div>
+        <div class="field">
+          <label>Days after collection</label>
+          <input type="number" id="c-days" value="1" min="0" max="10" step="1" oninput="renderCheck()">
+          <span class="hint">0 = same day as collection</span>
+        </div>
+      </div>
+    </div>
+    <div id="check-out"></div>
+  </div>
+
+  <footer>Built for the Chipman Lab · <em>Oncopeltus fasciatus</em> evo-devo</footer>
+</div>
+
+<script>
+const WORK_START = 8*60, WORK_END = 16*60;
+const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function setMode(mode, btn){
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('forward-panel').style.display = mode==='forward' ? '' : 'none';
+  document.getElementById('reverse-panel').style.display = mode==='reverse' ? '' : 'none';
+  document.getElementById('check-panel').style.display   = mode==='check'   ? '' : 'none';
+}
+
+function toggleDate(prefix){
+  const use = document.getElementById(prefix+'-use-date').checked;
+  const ids = prefix==='f' ? ['f-col-date'] : prefix==='r' ? ['r-fix-date'] : ['c-col-date','c-col-end-date','c-fix-date'];
+  ids.forEach(id => {
+    const el = document.getElementById(id);
+    el.style.display = use ? '' : 'none';
+    if(use && !el.value) el.value = new Date().toISOString().split('T')[0];
+  });
+  if(prefix==='f') renderForward();
+  else if(prefix==='r') renderReverse();
+  else renderCheck();
+}
+
+function parseTimeMin(s){ const [h,m]=s.split(':').map(Number); return h*60+(m||0); }
+function fmtMin(m){ const h=Math.floor(((m%1440)+1440)%1440/60),mm=((m%60)+60)%60; return h.toString().padStart(2,'0')+':'+mm.toString().padStart(2,'0'); }
+function isWork(m){ return m>=WORK_START && m<=WORK_END; }
+
+function absToDate(baseDate, absMin){
+  if(!baseDate) return null;
+  const d = new Date(baseDate+'T00:00:00');
+  d.setMinutes(d.getMinutes()+absMin);
+  return d;
+}
+function fmtDate(d){ return d ? DAYS[d.getDay()]+' '+d.getDate()+' '+MONTHS[d.getMonth()] : ''; }
+
+function toggleSeries(){
+  const on = document.getElementById('f-series').checked;
+  document.getElementById('f-interval-field').style.display = on ? '' : 'none';
+  renderForward();
+}
+
+function renderForward(){
+  const useDate = document.getElementById('f-use-date').checked;
+  const dateStr = document.getElementById('f-col-date').value;
+  const colMin = parseTimeMin(document.getElementById('f-col-time').value);
+  const dur = parseFloat(document.getElementById('f-col-dur').value)||2;
+  const tlo = parseFloat(document.getElementById('f-tlo').value)||0;
+  const thi = parseFloat(document.getElementById('f-thi').value)||48;
+  const isSeries = document.getElementById('f-series').checked;
+  const interval = parseFloat(document.getElementById('f-interval').value)||1;
+  const colMid = colMin + dur*60/2;
+  const targetMid = (tlo + thi) / 2;
+  const targetSpan = thi - tlo;
+
+  // Compute exact fixation absolute minute for a given target AEL
+  function fixAbsFor(targetAEL){ return colMid + targetAEL * 60; }
+
+  function makeResult(targetAEL){
+    const fixAbsMin = fixAbsFor(targetAEL);
+    const day = Math.floor(fixAbsMin / 1440);
+    const minOfDay = fixAbsMin % 1440;
+    const ael_young = (fixAbsMin - (colMin + dur*60)) / 60;
+    const ael_old   = (fixAbsMin - colMin) / 60;
+    const inWork = isWork(minOfDay);
+    return { fixAbsMin, day, minOfDay, ael_young, ael_old, ael_mid: targetAEL, inWork,
+      dateObj: useDate ? absToDate(dateStr, fixAbsMin) : null };
+  }
+
+  // Nearest working-hours fixation to a given AEL (snap to hour within 08:00-16:00)
+  function nearestWork(targetAEL){
+    const exact = fixAbsFor(targetAEL);
+    let best = null;
+    for(let day = 0; day <= 6; day++){
+      for(let h = WORK_START; h <= WORK_END; h += 60){
+        const fixAbsMin = day*1440 + h;
+        if(fixAbsMin < colMin + dur*60) continue;
+        const ael_mid = (fixAbsMin - colMid) / 60;
+        const dist = Math.abs(fixAbsMin - exact);
+        if(!best || dist < best.dist){
+          best = { fixAbsMin, day, minOfDay: h,
+            ael_young: (fixAbsMin-(colMin+dur*60))/60, ael_old: (fixAbsMin-colMin)/60,
+            ael_mid, dist, inWork: true,
+            dateObj: useDate ? absToDate(dateStr, fixAbsMin) : null };
+        }
+      }
+    }
+    return best;
+  }
+
+  const renderItem = (r, label, isBest, showWorkBadge) => {
+    const ds = r.dateObj ? fmtDate(r.dateObj) : 'Day '+(r.day+1);
+    const cls = isBest ? 'result-item best' : 'result-item';
+    const badge = showWorkBadge ? (r.inWork ? '<span class="badge ok">working hours</span>' : '<span class="badge off">off hours</span>') : '';
+    return `<div class="${cls}">
+      <div class="ri-left">
+        <div class="ri-main">${label} <strong>${fmtMin(r.minOfDay)}</strong> &nbsp;·&nbsp; ${ds}</div>
+        <div class="ri-sub">window ${r.ael_young.toFixed(1)}–${r.ael_old.toFixed(1)}h AEL</div>
+      </div>${badge}</div>`;
+  };
+
+  let html = '';
+
+  if(!isSeries || targetSpan <= dur){
+    // Single fixation: just show the one exact answer for targetMid
+    const exact = makeResult(targetMid);
+    const label = tlo===thi ? tlo+'h AEL:' : targetMid+'h AEL:';
+    html += '<div class="result-list">';
+    html += renderItem(exact, label, exact.inWork, true);
+    if(!exact.inWork){
+      const wa = nearestWork(targetMid);
+      if(wa) html += renderItem(wa, 'Nearest work-hours ('+wa.ael_mid.toFixed(1)+'h AEL):', true, true);
+    }
+    html += '</div>';
+  } else {
+    // Series: generate fixations spaced by interval covering tlo→thi
+    // Start at tlo, step by interval, last point at or before thi
+    const points = [];
+    for(let aelTarget = tlo; aelTarget <= thi + 0.001; aelTarget += interval){
+      const t = Math.round(aelTarget*100)/100;
+      if(t > thi + 0.001) break;
+      points.push(Math.min(t, thi));
+    }
+    // Deduplicate last point if very close to second-to-last
+    const deduped = points.filter((v,i) => i===0 || Math.abs(v-points[i-1]) > 0.01);
+
+    const series = deduped.map(t => makeResult(t));
+    const allWork = series.every(r => r.inWork);
+
+    html += `<div class="section-label">${series.length} fixation${series.length>1?'s':''} · ${interval}h intervals · ${tlo}–${thi}h AEL</div>`;
+    html += '<div class="result-list">';
+    series.forEach((r,i) => {
+      html += renderItem(r, r.ael_mid.toFixed(1)+'h AEL:', r.inWork, true);
+    });
+    html += '</div>';
+
+    if(!allWork){
+      const offCount = series.filter(r=>!r.inWork).length;
+      html += `<div class="hint" style="margin-top:0.5rem">${offCount} fixation${offCount>1?'s fall':' falls'} outside working hours — nearest work-hour alternatives below.</div>`;
+      html += '<div class="result-list" style="margin-top:0.5rem">';
+      series.filter(r=>!r.inWork).forEach(r => {
+        const wa = nearestWork(r.ael_mid);
+        if(wa) html += renderItem(wa, 'Alt for '+r.ael_mid.toFixed(1)+'h AEL:', true, true);
+      });
+      html += '</div>';
+    }
+  }
+
+  html += `<div class="summary">
+    <div class="metric"><div class="metric-label">Collection start</div><div class="metric-val">${fmtMin(colMin)}</div></div>
+    <div class="metric"><div class="metric-label">Median egg</div><div class="metric-val">${fmtMin(colMid%1440)}</div></div>
+    <div class="metric"><div class="metric-label">Target AEL</div><div class="metric-val">${tlo}–${thi}h</div></div>
+  </div>`;
+  document.getElementById('forward-out').innerHTML = html;
+}
+
+function renderReverse(){
+  const useDate = document.getElementById('r-use-date').checked;
+  const dateStr = document.getElementById('r-fix-date').value;
+  const fixMin = parseTimeMin(document.getElementById('r-fix-time').value);
+  const dur = parseFloat(document.getElementById('r-col-dur').value)||2;
+  const tlo = parseFloat(document.getElementById('r-tlo').value)||0;
+  const thi = parseFloat(document.getElementById('r-thi').value)||48;
+  const durMin = dur*60;
+  const targetMid = (tlo + thi) / 2;
+
+  // Exact: colStart = fixAbsMin - targetAEL*60 - durMin/2
+  // Try increasing day offsets until colStart >= 0 and fixation is after collection ends
+  function exactCol(targetAEL) {
+    for(let d = 0; d <= 5; d++){
+      const fixAbsMin = d * 1440 + fixMin;
+      const colStartAbsMin = fixAbsMin - targetAEL * 60 - durMin / 2;
+      const colEndAbsMin = colStartAbsMin + durMin;
+      if(colStartAbsMin < 0) continue;
+      if(colEndAbsMin > fixAbsMin) continue;
+      const minOfDay = ((colStartAbsMin % 1440) + 1440) % 1440;
+      const endMinOfDay = ((colEndAbsMin % 1440) + 1440) % 1440;
+      const ael_young = (fixAbsMin - colEndAbsMin) / 60;
+      const ael_old = (fixAbsMin - colStartAbsMin) / 60;
+      const inWork = isWork(minOfDay) && isWork(endMinOfDay);
+      return { minOfDay, endMinOfDay, ael_young, ael_old, ael_mid: targetAEL, inWork, d,
+        startDate: useDate ? absToDate(dateStr, colStartAbsMin - d*1440) : null,
+        label: d===0 ? 'same day' : d+'d before fixation' };
+    }
+    return null;
+  }
+
+  // Nearest working-hours collection: snap colStart to nearest hour within 08:00-16:00
+  function nearestWorkCol() {
+    let best = null;
+    for(let d = 0; d <= 5; d++){
+      const fixAbsMin = d * 1440 + fixMin;
+      for(let h = WORK_START; h <= WORK_END; h += 60){
+        for(let colDay = 0; colDay <= d; colDay++){
+          const colStartAbsMin = colDay * 1440 + h;
+          const colEndAbsMin = colStartAbsMin + durMin;
+          if(colEndAbsMin > fixAbsMin) continue;
+          const endMinOfDay = ((colEndAbsMin % 1440) + 1440) % 1440;
+          if(!isWork(endMinOfDay)) continue;
+          const ael_mid = (fixAbsMin - colStartAbsMin - durMin/2) / 60;
+          if(ael_mid < 0) continue;
+          const dist = Math.abs(ael_mid - targetMid);
+          if(!best || dist < best.dist){
+            best = { minOfDay: h, endMinOfDay, ael_young: (fixAbsMin-colEndAbsMin)/60,
+              ael_old: (fixAbsMin-colStartAbsMin)/60, ael_mid, dist, inWork: true, d,
+              startDate: useDate ? absToDate(dateStr, colStartAbsMin - d*1440) : null,
+              label: d===0 ? 'same day' : d+'d before fixation' };
+          }
+        }
+      }
+    }
+    return best;
+  }
+
+  const exact = exactCol(targetMid);
+  const exactLo = exactCol(tlo);
+  const exactHi = exactCol(thi);
+  const workApprox = nearestWorkCol();
+
+  const renderExact = (r, label, isBest) => {
+    if(!r) return '';
+    const ds = r.startDate ? fmtDate(r.startDate) : r.label;
+    const cls = isBest ? 'result-item best' : 'result-item';
+    const badge = r.inWork ? '<span class="badge ok">working hours</span>' : '<span class="badge off">off hours</span>';
+    return `<div class="${cls}">
+      <div class="ri-left">
+        <div class="ri-main">${label}: collect <strong>${fmtMin(r.minOfDay)}–${fmtMin(r.endMinOfDay)}</strong> &nbsp;·&nbsp; ${ds}</div>
+        <div class="ri-sub">→ median ${r.ael_mid.toFixed(1)}h AEL &nbsp;·&nbsp; window ${r.ael_young.toFixed(1)}–${r.ael_old.toFixed(1)}h AEL at fixation</div>
+      </div>${badge}</div>`;
+  };
+
+  let html = '<div class="section-label">Exact collection windows</div><div class="result-list">';
+  html += renderExact(exact, 'Median target ('+targetMid+'h AEL)', exact && exact.inWork);
+  if(tlo !== thi){
+    html += renderExact(exactLo, 'Early end ('+tlo+'h AEL)', false);
+    html += renderExact(exactHi, 'Late end ('+thi+'h AEL)', false);
+  }
+  html += '</div>';
+
+  if(workApprox && exact && !exact.inWork){
+    html += '<div class="section-label">Nearest working-hours collection</div><div class="result-list">';
+    html += renderExact(workApprox, 'Best work-hours fit ('+workApprox.ael_mid.toFixed(1)+'h AEL)', true);
+    html += '</div>';
+  }
+
+  if(!exact) html = '<div class="empty">No valid collection window found. Try adjusting inputs.</div>';
+
+  html += `<div class="summary">
+    <div class="metric"><div class="metric-label">Fixation at</div><div class="metric-val">${fmtMin(fixMin)}</div></div>
+    <div class="metric"><div class="metric-label">Window</div><div class="metric-val">${dur}h</div></div>
+    <div class="metric"><div class="metric-label">Target AEL</div><div class="metric-val">${tlo}–${thi}h</div></div>
+  </div>`;
+  document.getElementById('reverse-out').innerHTML = html;
+}
+
+function renderCheck(){
+  const colStartMin = parseTimeMin(document.getElementById('c-col-time').value);
+  const colEndMin   = parseTimeMin(document.getElementById('c-col-end-time').value);
+  const fixMin      = parseTimeMin(document.getElementById('c-fix-time').value);
+  const days        = parseInt(document.getElementById('c-days').value)||0;
+
+  // Resolve collection end — if end < start, assume it wraps to next day
+  let colStartAbs = colStartMin;
+  let colEndAbs   = colEndMin < colStartMin ? colEndMin + 1440 : colEndMin;
+  let fixAbs      = days * 1440 + fixMin;
+
+  // If fixation is before collection ends, try adding a day
+  if(fixAbs < colEndAbs) fixAbs += 1440;
+
+  const durH = (colEndAbs - colStartAbs) / 60;
+  const colMidAbs = (colStartAbs + colEndAbs) / 2;
+
+  const ael_oldest  = (fixAbs - colStartAbs) / 60;
+  const ael_youngest= (fixAbs - colEndAbs)   / 60;
+  const ael_median  = (fixAbs - colMidAbs)   / 60;
+
+  if(ael_youngest < 0){
+    document.getElementById('check-out').innerHTML = '<div class="empty">Fixation time is before the end of the collection window — check your inputs.</div>';
+    return;
+  }
+
+  const big = (val, label) =>
+    `<div class="metric"><div class="metric-label">${label}</div><div class="metric-val" style="font-size:22px;font-weight:600">${val.toFixed(1)}h AEL</div></div>`;
+
+  let html = `<div class="summary" style="margin-top:0">
+    ${big(ael_median,  'Median embryo')}
+    ${big(ael_youngest,'Youngest (laid at '+fmtMin(colEndAbs%1440)+')')}
+    ${big(ael_oldest,  'Oldest (laid at '+fmtMin(colStartAbs%1440)+')')}
+  </div>`;
+
+  html += `<div class="summary">
+    <div class="metric"><div class="metric-label">Collection window</div><div class="metric-val">${fmtMin(colStartAbs%1440)}–${fmtMin(colEndAbs%1440)} (${durH.toFixed(1)}h)</div></div>
+    <div class="metric"><div class="metric-label">Fixation</div><div class="metric-val">${days>0?days+'d later · ':''}${fmtMin(fixMin)}</div></div>
+    <div class="metric"><div class="metric-label">Age spread</div><div class="metric-val">${durH.toFixed(1)}h</div></div>
+  </div>`;
+
+  document.getElementById('check-out').innerHTML = html;
+}
+
+renderForward();
+renderReverse();
+renderCheck();
+</script>
+</body>
+</html>
