@@ -44,6 +44,8 @@
   .divider { height: 1px; background: #e8e8e4; margin: 1rem 0; }
   footer { text-align: center; font-size: 12px; color: #aaa; margin-top: 2rem; }
   .tab-desc { font-size: 13px; color: #777; margin-bottom: 0.75rem; }
+  .ics-btn { display: inline-flex; align-items: center; gap: 6px; margin-top: 1rem; padding: 8px 16px; border-radius: 8px; border: 1px solid #b0ccea; background: #eef4fb; color: #2563a8; font-size: 13px; font-family: inherit; cursor: pointer; font-weight: 500; text-decoration: none; }
+  .ics-btn:hover { background: #ddeaf7; }
 </style>
 </head>
 <body>
@@ -213,6 +215,52 @@ function absToDate(baseDate, absMin){
 }
 function fmtDate(d){ return d ? DAYS[d.getDay()]+' '+d.getDate()+' '+MONTHS[d.getMonth()] : ''; }
 
+// Google Calendar direct link
+// events: array of { summary, start: Date, end: Date, description }
+function gcalLinks(events){
+  function pad(n){ return String(n).padStart(2,'0'); }
+  function gcalDate(d){
+    return d.getFullYear()+pad(d.getMonth()+1)+pad(d.getDate())+'T'+pad(d.getHours())+pad(d.getMinutes())+'00';
+  }
+  return events.map(ev => {
+    const params = new URLSearchParams({
+      action: 'TEMPLATE',
+      text: ev.summary,
+      dates: gcalDate(ev.start)+'/'+gcalDate(ev.end),
+      details: ev.description || '',
+      ctz: 'Asia/Jerusalem'
+    });
+    return { summary: ev.summary, url: 'https://calendar.google.com/calendar/render?'+params.toString() };
+  });
+}
+
+// Build a Date from a reference date string (YYYY-MM-DD) + absolute minutes offset
+// If no date string, use today
+function absMinToDate(baseDateStr, absMin){
+  const base = baseDateStr ? new Date(baseDateStr+'T00:00:00') : new Date();
+  base.setHours(0,0,0,0);
+  return new Date(base.getTime() + absMin*60000);
+}
+
+function gcalButtonsHtml(events, id){
+  const links = gcalLinks(events);
+  if(links.length === 1){
+    return `<a href="${links[0].url}" target="_blank" class="ics-btn">📅 Add to Google Calendar</a>`;
+  }
+  // Multiple events: one button each
+  return '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:1rem">' +
+    links.map(l => `<a href="${l.url}" target="_blank" class="ics-btn" style="margin-top:0">${l.summary}</a>`).join('') +
+    '</div>';
+}
+
+// Build a Date from a reference date string (YYYY-MM-DD) + absolute minutes offset
+// If no date string, use today
+function absMinToDate(baseDateStr, absMin){
+  const base = baseDateStr ? new Date(baseDateStr+'T00:00:00') : new Date();
+  base.setHours(0,0,0,0);
+  return new Date(base.getTime() + absMin*60000);
+}
+
 function toggleSeries(){
   const on = document.getElementById('f-series').checked;
   document.getElementById('f-interval-field').style.display = on ? '' : 'none';
@@ -279,6 +327,8 @@ function renderForward(){
   };
 
   let html = '';
+  let icsEvents = [];
+  const colDesc = `Collection: ${fmtMin(colMin)}–${fmtMin((colMin+dur*60)%1440)}`;
 
   if(!isSeries || targetSpan <= dur){
     // Single fixation: just show the one exact answer for targetMid
@@ -291,25 +341,26 @@ function renderForward(){
       if(wa) html += renderItem(wa, 'Nearest work-hours ('+wa.ael_mid.toFixed(1)+'h AEL):', true, true);
     }
     html += '</div>';
+    const fixDate = absMinToDate(dateStr, exact.fixAbsMin);
+    const fixEnd = new Date(fixDate.getTime() + 3600000);
+    icsEvents.push({ summary: `Fix Oncopeltus (${targetMid}h AEL)`, start: fixDate, end: fixEnd, description: colDesc });
   } else {
-    // Series: generate fixations spaced by interval covering tlo→thi
-    // Start at tlo, step by interval, last point at or before thi
     const points = [];
     for(let aelTarget = tlo; aelTarget <= thi + 0.001; aelTarget += interval){
       const t = Math.round(aelTarget*100)/100;
       if(t > thi + 0.001) break;
       points.push(Math.min(t, thi));
     }
-    // Deduplicate last point if very close to second-to-last
     const deduped = points.filter((v,i) => i===0 || Math.abs(v-points[i-1]) > 0.01);
-
     const series = deduped.map(t => makeResult(t));
     const allWork = series.every(r => r.inWork);
 
     html += `<div class="section-label">${series.length} fixation${series.length>1?'s':''} · ${interval}h intervals · ${tlo}–${thi}h AEL</div>`;
     html += '<div class="result-list">';
-    series.forEach((r,i) => {
+    series.forEach((r) => {
       html += renderItem(r, r.ael_mid.toFixed(1)+'h AEL:', r.inWork, true);
+      const fixDate = absMinToDate(dateStr, r.fixAbsMin);
+      icsEvents.push({ summary: `Fix Oncopeltus (${r.ael_mid.toFixed(1)}h AEL)`, start: fixDate, end: new Date(fixDate.getTime()+3600000), description: colDesc });
     });
     html += '</div>';
 
@@ -325,11 +376,18 @@ function renderForward(){
     }
   }
 
+  // Also add collection window as an event
+  const colStart = absMinToDate(dateStr, colMin);
+  const colEnd2 = absMinToDate(dateStr, colMin + dur*60);
+  icsEvents.unshift({ summary: 'Oncopeltus egg collection', start: colStart, end: colEnd2, description: `Collection window for ${tlo}–${thi}h AEL staging` });
+
+  const icsId = 'f-ics-'+Date.now();
   html += `<div class="summary">
     <div class="metric"><div class="metric-label">Collection start</div><div class="metric-val">${fmtMin(colMin)}</div></div>
     <div class="metric"><div class="metric-label">Median egg</div><div class="metric-val">${fmtMin(colMid%1440)}</div></div>
     <div class="metric"><div class="metric-label">Target AEL</div><div class="metric-val">${tlo}–${thi}h</div></div>
   </div>`;
+  html += gcalButtonsHtml(icsEvents);
   document.getElementById('forward-out').innerHTML = html;
 }
 
@@ -424,11 +482,41 @@ function renderReverse(){
 
   if(!exact) html = '<div class="empty">No valid collection window found. Try adjusting inputs.</div>';
 
+  // Build ICS events
+  const rIcsEvents = [];
+  if(exact){
+    const colStartDate = absMinToDate(dateStr, exact.minOfDay - exact.d*1440 + exact.d*1440);
+    // col start abs = fixAbsMin - targetMid*60 - durMin/2
+    const colStartAbs = (exact.d*1440 + fixMin) - targetMid*60 - durMin/2;
+    const colS = absMinToDate(dateStr, colStartAbs - exact.d*1440);
+    const colE = new Date(colS.getTime() + durMin*60000);
+    const fixD = new Date(colS.getTime() + (exact.d*1440 + fixMin - (colStartAbs - exact.d*1440))*60000);
+    // simpler: use exact.minOfDay for collection
+    const colStart2 = absMinToDate(dateStr, exact.minOfDay);
+    const colEnd2 = new Date(colStart2.getTime() + durMin*60000);
+    // fixation is d days later
+    const fixStart = new Date(colStart2.getTime() + exact.d*1440*60000 + (fixMin - exact.minOfDay)*60000);
+    // easier: just reconstruct
+    const colStartAbsMin2 = (exact.d*1440 + fixMin) - targetMid*60 - durMin/2;
+    const csDate = absMinToDate(dateStr, colStartAbsMin2 - exact.d*1440 + (exact.d > 0 ? -exact.d*1440 : 0) + exact.d*1440);
+    // simplest approach: use minOfDay directly
+    const todayBase = dateStr ? new Date(dateStr+'T00:00:00') : new Date(); todayBase.setHours(0,0,0,0);
+    const colStartDate2 = new Date(todayBase);
+    colStartDate2.setMinutes(colStartDate2.getMinutes() + exact.minOfDay);
+    const colEndDate2 = new Date(colStartDate2.getTime() + durMin*60000);
+    const fixStartDate = new Date(todayBase.getTime() + exact.d*1440*60000 + fixMin*60000);
+    const fixEndDate = new Date(fixStartDate.getTime() + 3600000);
+    rIcsEvents.push({ summary: 'Oncopeltus egg collection', start: colStartDate2, end: colEndDate2, description: `Target: ${tlo}–${thi}h AEL at fixation ${fmtMin(fixMin)}` });
+    rIcsEvents.push({ summary: `Fix Oncopeltus (${targetMid}h AEL)`, start: fixStartDate, end: fixEndDate, description: `Collection was ${fmtMin(exact.minOfDay)}–${fmtMin(exact.endMinOfDay)}` });
+  }
+
+  const rIcsId = 'r-ics-'+Date.now();
   html += `<div class="summary">
     <div class="metric"><div class="metric-label">Fixation at</div><div class="metric-val">${fmtMin(fixMin)}</div></div>
     <div class="metric"><div class="metric-label">Window</div><div class="metric-val">${dur}h</div></div>
     <div class="metric"><div class="metric-label">Target AEL</div><div class="metric-val">${tlo}–${thi}h</div></div>
   </div>`;
+  if(rIcsEvents.length) html += gcalButtonsHtml(rIcsEvents);
   document.getElementById('reverse-out').innerHTML = html;
 }
 
@@ -473,6 +561,19 @@ function renderCheck(){
     <div class="metric"><div class="metric-label">Age spread</div><div class="metric-val">${durH.toFixed(1)}h</div></div>
   </div>`;
 
+  // Build ICS
+  const cDateStr = document.getElementById('c-col-date') && document.getElementById('c-use-date').checked ? document.getElementById('c-col-date').value : '';
+  const todayBase = cDateStr ? new Date(cDateStr+'T00:00:00') : new Date(); todayBase.setHours(0,0,0,0);
+  const cColStart = new Date(todayBase.getTime() + colStartAbs*60000);
+  const cColEnd   = new Date(todayBase.getTime() + colEndAbs*60000);
+  const cFixStart = new Date(todayBase.getTime() + fixAbs*60000);
+  const cFixEnd   = new Date(cFixStart.getTime() + 3600000);
+  const cIcsEvents = [
+    { summary: 'Oncopeltus egg collection', start: cColStart, end: cColEnd, description: `Median AEL at fixation: ${ael_median.toFixed(1)}h` },
+    { summary: `Fix Oncopeltus (${ael_median.toFixed(1)}h AEL)`, start: cFixStart, end: cFixEnd, description: `Collection: ${fmtMin(colStartAbs%1440)}–${fmtMin(colEndAbs%1440)}\nWindow: ${ael_youngest.toFixed(1)}–${ael_oldest.toFixed(1)}h AEL` }
+  ];
+  const cIcsId = 'c-ics-'+Date.now();
+  html += gcalButtonsHtml(cIcsEvents);
   document.getElementById('check-out').innerHTML = html;
 }
 
